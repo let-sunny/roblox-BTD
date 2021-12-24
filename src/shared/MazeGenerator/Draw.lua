@@ -1,6 +1,15 @@
 local Draw = {}
 local WALL_UNIT_POSITION = {Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), Vector3.new(0, 0, -1), Vector3.new(1, 0, 0)}
 
+-- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
+local function killerPlayer(otherPart)
+    local partParent = otherPart.Parent
+    local humanoid = partParent:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.Health = 0
+    end
+end
+
 function Draw:getTransformationCoordinate(unit, cellCount, parentPosition)
 	local std = self.wallSize.X - self.wallSize.Z
 	local mazeWidth = (cellCount - 1) * std
@@ -17,7 +26,7 @@ end
 function Draw:new(cellSize)
 	local o = {
 		cellSize = cellSize,
-		wallSize = Vector3.new(cellSize, 25, 2),
+		wallSize = Vector3.new(cellSize, 35, 2),
         templates = game:GetService("ReplicatedStorage").Template.MazeGenerator,
         exits = {},
 	}
@@ -28,13 +37,17 @@ function Draw:new(cellSize)
 end
 
 function Draw:draw(cells, exitCount)
+    self:initTemplateBlock()
+    self:createMaze(cells)
+    self:cresteExit(exitCount)
+end
+
+function Draw:initTemplateBlock()
     self.templates.Baseplate:Clone().Parent = game.Workspace
+    self.templates.SpawnLocation:Clone().Parent = game.Workspace
     self.mazeFrame = self.templates.MazeFrame:Clone()
     self.mazeFrame.Parent = game.Workspace
     self.mazeFrame.Parent:WaitForChild("MazeFrame")
-
-    self:createMaze(cells)
-    self:cresteExit(exitCount)
 end
 
 function Draw:createMaze(cells)
@@ -67,8 +80,9 @@ function Draw:createWalls(parent, walls, mazeSize)
 				wall.CFrame = CFrame.new(wall.Position) * CFrame.Angles(0, math.rad(90), 0)
 			end
 
-            if not wall.Parent.PrimaryPart then
-                wall.Parent.PrimaryPart = wall
+            if math.random(0, 10) == 1 then
+                wall.Touched:Connect(killerPlayer)
+                wall.BrickColor = BrickColor.new("Bright red")
             end
 		end
 	end
@@ -83,6 +97,9 @@ function Draw:cresteExit(exitCount)
         local parent = cells[math.random(1, #cells)]
         exit.Name = "Exit"
         exit.PrimaryPart = exit:FindFirstChild("PrimaryPart")
+
+        -- TODO: stage two 정해지면 경로변경
+        Draw.setTeleportPart(exit.PrimaryPart, game:GetService("ReplicatedStorage").Template.StageTwo.SpawnLocation.Position)
 
         Draw.setModelPosition(exit, parent)
         table.insert(exits, exit)
@@ -103,6 +120,38 @@ function Draw.setModelPosition(model, parent)
     model.Parent = parent
     model:SetPrimaryPartCFrame(orientation + Vector3.new(0, 3, 0))
 end
+
+-- TODO: killerPlayer, teleportPart 구조 및 위치 수정
+function Draw.setTeleportPart(teleportPart, destination)
+    local TELEPORT_FACE_ANGLE = 0
+    local FREEZE_CHARACTER = true
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage").Common
+    -- Require teleport module
+    local TeleportWithinPlace = require(ReplicatedStorage:WaitForChild("TeleportWithinPlace"))
+
+    local function teleportPlayer(otherPart)
+        local character = otherPart.Parent
+        local humanoid = character:FindFirstChild("Humanoid")
+
+        if humanoid and not humanoid:GetAttribute("Teleporting") then
+            humanoid:SetAttribute("Teleporting", true)
+
+            local params = {
+                destination = destination,
+                faceAngle = TELEPORT_FACE_ANGLE,
+                freeze = FREEZE_CHARACTER
+            }
+            TeleportWithinPlace.Teleport(humanoid, params)
+
+            wait(1)
+            humanoid:SetAttribute("Teleporting", nil)
+        end
+    end
+
+    teleportPart.Touched:Connect(teleportPlayer)
+end
+
 
 
 return Draw
