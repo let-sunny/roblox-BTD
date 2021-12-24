@@ -1,29 +1,6 @@
 local Draw = {}
 local WALL_UNIT_POSITION = {Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), Vector3.new(0, 0, -1), Vector3.new(1, 0, 0)}
 
-function Draw.getWallTemplate()
-	local template = Instance.new("Part", game.Workspace)
-	template.Name = "WallTemplate"
-	template.Position = Vector3.new(0, -100, 0)
-	template.BrickColor = BrickColor.new("Pastel blue-green")
-	template.Material = Enum.Material.Glass
-	template.Anchored = true
-
-	return template
-end
-
-function Draw.getCellTemplate()
-	local template = Instance.new("Model", game.Workspace)
-	template.Name = "CellTemplate"
-	return template
-end
-
-function Draw.getMazeModel()
-	local template = Instance.new("Model", game.Workspace)
-	template.Name = "MazeModel"
-	return template
-end
-
 function Draw:getTransformationCoordinate(unit, cellCount, parentPosition)
 	local std = self.wallSize.X - self.wallSize.Z
 	local mazeWidth = (cellCount - 1) * std
@@ -40,23 +17,22 @@ end
 function Draw:new(cellSize)
 	local o = {
 		cellSize = cellSize,
-		wallSize = Vector3.new(cellSize, 20, 2),
-		wallTemplate = Draw.getWallTemplate(),
-		cellTemplate = Draw.getCellTemplate(),
-		mazeModel = Draw.getMazeModel(),
+		wallSize = Vector3.new(cellSize, 25, 2),
+        templates = game:GetService("ReplicatedStorage").Template.MazeGenerator,
+        exits = {},
 	}
 	setmetatable(o, self)
 	self.__index = self
 
-	game.Workspace:WaitForChild("MazeModel")
-	game.Workspace:WaitForChild("WallTemplate")
-	game.Workspace:WaitForChild("CellTemplate")
-
 	return o
 end
 
-
 function Draw:draw(cells, exitCount)
+    self.templates.Baseplate:Clone().Parent = game.Workspace
+    self.mazeFrame = self.templates.MazeFrame:Clone()
+    self.mazeFrame.Parent = game.Workspace
+    self.mazeFrame.Parent:WaitForChild("MazeFrame")
+
     self:createMaze(cells)
     self:cresteExit(exitCount)
 end
@@ -66,9 +42,9 @@ function Draw:createMaze(cells)
 	for i = 1, cellCount do
 		for j = 1, cellCount do
 			local walls = cells[i][j].walls
-			local cell = self.cellTemplate:Clone()
+			local cell = self.templates.Cell:Clone()
 			cell.Name = "Cell"
-			cell.Parent = self.mazeModel
+			cell.Parent = self.mazeFrame
 			cell:SetAttribute("index", Vector2.new(i, j))
 
 			cell.Parent:WaitForChild("Cell")
@@ -81,7 +57,7 @@ function Draw:createWalls(parent, walls, mazeSize)
 	for i = 1, #walls do
 		if walls[i] then
 			local parentPosition = parent:GetAttribute("index")
-			local wall = self.wallTemplate:Clone()
+			local wall = self.templates.Wall:Clone()
 			wall.Name = "Wall"
 			wall.Parent = parent
 			wall.Position = self:getTransformationCoordinate(WALL_UNIT_POSITION[i], mazeSize, parentPosition)
@@ -90,13 +66,42 @@ function Draw:createWalls(parent, walls, mazeSize)
 			if i % 2 == 0 then -- { top, right, bottom, left }
 				wall.CFrame = CFrame.new(wall.Position) * CFrame.Angles(0, math.rad(90), 0)
 			end
+
+            if not wall.Parent.PrimaryPart then
+                wall.Parent.PrimaryPart = wall
+            end
 		end
 	end
 end
 
-function Draw:createExit(exitCount)
+function Draw:cresteExit(exitCount)
     -- 출구 정해진 숫자만큼 생성
+    local exits = self.exits
+    local cells = self.mazeFrame:getChildren()
+    for _ = 1, exitCount do
+        local exit = self.templates.Exit:Clone()
+        local parent = cells[math.random(1, #cells)]
+        exit.Name = "Exit"
+        exit.PrimaryPart = exit:FindFirstChild("PrimaryPart")
+
+        Draw.setModelPosition(exit, parent)
+        table.insert(exits, exit)
+    end
+
     -- 일정 시간뒤 랜덤하게 위치 이동
+    while Wait(60 * 5) do
+        for i = 1, #exits do
+            local exit = exits[i]
+            local parent = cells[math.random(1, #cells)]
+            Draw.setModelPosition(exit, parent)
+        end
+    end
+end
+
+function Draw.setModelPosition(model, parent) 
+    local orientation = parent:GetBoundingBox()
+    model.Parent = parent
+    model:SetPrimaryPartCFrame(orientation + Vector3.new(0, 3, 0))
 end
 
 
