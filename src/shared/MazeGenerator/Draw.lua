@@ -1,14 +1,6 @@
 local Draw = {}
 local WALL_UNIT_POSITION = {Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), Vector3.new(0, 0, -1), Vector3.new(1, 0, 0)}
 
--- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
-local function killerPlayer(otherPart)
-    local partParent = otherPart.Parent
-    local humanoid = partParent:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.Health = 0
-    end
-end
 
 function Draw:getTransformationCoordinate(unit, cellCount, parentPosition)
 	local std = self.wallSize.X - self.wallSize.Z
@@ -81,7 +73,7 @@ function Draw:createWalls(parent, walls, mazeSize)
 			end
 
             if math.random(0, 10) == 1 then
-                wall.Touched:Connect(killerPlayer)
+                wall.Touched:Connect(Draw.killerPlayer)
                 wall.BrickColor = BrickColor.new("Bright red")
             end
 		end
@@ -98,8 +90,8 @@ function Draw:cresteExit(exitCount)
         exit.Name = "Exit"
         exit.PrimaryPart = exit:FindFirstChild("PrimaryPart")
 
-        -- TODO: stage two 정해지면 경로변경
-        Draw.setTeleportPart(exit.PrimaryPart, game:GetService("ReplicatedStorage").Template.StageTwo.SpawnLocation.Position)
+        local stageTwoPlaceId = 8354626769
+        Draw.setTeleportPart(exit.PrimaryPart, stageTwoPlaceId)
 
         Draw.setModelPosition(exit, parent)
         table.insert(exits, exit)
@@ -122,34 +114,37 @@ function Draw.setModelPosition(model, parent)
 end
 
 -- TODO: killerPlayer, teleportPart 구조 및 위치 수정
-function Draw.setTeleportPart(teleportPart, destination)
-    local TELEPORT_FACE_ANGLE = 0
-    local FREEZE_CHARACTER = true
 
-    local ReplicatedStorage = game:GetService("ReplicatedStorage").Common
+-- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
+function Draw.killerPlayer(otherPart)
+    local partParent = otherPart.Parent
+    local humanoid = partParent:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.Health = 0
+    end
+end
+
+function Draw.setTeleportPart(teleportPart, targetPlaceID)
+    local Players = game:GetService("Players")
+
     -- Require teleport module
-    local TeleportWithinPlace = require(ReplicatedStorage:WaitForChild("TeleportWithinPlace"))
+    local TeleportModule = require(game:GetService("ReplicatedStorage").Common:WaitForChild("TeleportModule"))
 
-    local function teleportPlayer(otherPart)
-        local character = otherPart.Parent
-        local humanoid = character:FindFirstChild("Humanoid")
+    local function onPartTouch(otherPart)
+        -- Get player from character
+        local player = Players:GetPlayerFromCharacter(otherPart.Parent)
 
-        if humanoid and not humanoid:GetAttribute("Teleporting") then
-            humanoid:SetAttribute("Teleporting", true)
+        if player and not player:GetAttribute("Teleporting") then
+            player:SetAttribute("Teleporting", true)
 
-            local params = {
-                destination = destination,
-                faceAngle = TELEPORT_FACE_ANGLE,
-                freeze = FREEZE_CHARACTER
-            }
-            TeleportWithinPlace.Teleport(humanoid, params)
+            -- Teleport the player
+            local teleportResult = TeleportModule.teleportBetweenPlaces(targetPlaceID, {player})
 
-            wait(1)
-            humanoid:SetAttribute("Teleporting", nil)
+            player:SetAttribute("Teleporting", nil)
         end
     end
 
-    teleportPart.Touched:Connect(teleportPlayer)
+    teleportPart.Touched:Connect(onPartTouch)
 end
 
 
