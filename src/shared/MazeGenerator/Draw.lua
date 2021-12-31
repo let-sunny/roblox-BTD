@@ -89,16 +89,14 @@ function Draw:cresteExit(exitCount)
         local parent = cells[math.random(1, #cells)]
         exit.Name = "Exit"
         exit.PrimaryPart = exit:FindFirstChild("PrimaryPart")
-
-        local stageTwoPlaceId = 8354626769
-        Draw.setTeleportPart(exit.PrimaryPart, stageTwoPlaceId)
+        exit.PrimaryPart.Touched:Connect(Draw.escape)
 
         Draw.setModelPosition(exit, parent)
         table.insert(exits, exit)
     end
 
     -- 일정 시간뒤 랜덤하게 위치 이동
-    while Wait(60 * 5) do
+    while wait(60 * 5) do
         for i = 1, #exits do
             local exit = exits[i]
             local parent = cells[math.random(1, #cells)]
@@ -113,7 +111,16 @@ function Draw.setModelPosition(model, parent)
     model:SetPrimaryPartCFrame(orientation + Vector3.new(0, 3, 0))
 end
 
--- TODO: killerPlayer, teleportPart 구조 및 위치 수정
+
+function Draw.escape(otherPart)
+    local partParent = otherPart.Parent
+    local humanoid = partParent:FindFirstChild("Humanoid")
+    if humanoid then
+        local StageModule = require(game:GetService("ReplicatedStorage").Common:WaitForChild("StageModule"))
+        local player = game:GetService("Players"):GetPlayerFromCharacter(otherPart.Parent)
+        StageModule.stageClear(player, 1)
+    end
+end
 
 -- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
 function Draw.killerPlayer(otherPart)
@@ -122,29 +129,6 @@ function Draw.killerPlayer(otherPart)
     if humanoid then
         humanoid.Health = 0
     end
-end
-
-function Draw.setTeleportPart(teleportPart, targetPlaceID)
-    local Players = game:GetService("Players")
-
-    -- Require teleport module
-    local TeleportModule = require(game:GetService("ReplicatedStorage").Common:WaitForChild("TeleportModule"))
-
-    local function onPartTouch(otherPart)
-        -- Get player from character
-        local player = Players:GetPlayerFromCharacter(otherPart.Parent)
-
-        if player and not player:GetAttribute("Teleporting") then
-            player:SetAttribute("Teleporting", true)
-
-            -- Teleport the player
-            local teleportResult = TeleportModule.teleportBetweenPlaces(targetPlaceID, {player})
-
-            player:SetAttribute("Teleporting", nil)
-        end
-    end
-
-    teleportPart.Touched:Connect(onPartTouch)
 end
 
 
