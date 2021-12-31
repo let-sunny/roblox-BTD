@@ -1,14 +1,6 @@
 local Draw = {}
 local WALL_UNIT_POSITION = {Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0), Vector3.new(0, 0, -1), Vector3.new(1, 0, 0)}
 
--- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
-local function killerPlayer(otherPart)
-    local partParent = otherPart.Parent
-    local humanoid = partParent:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.Health = 0
-    end
-end
 
 function Draw:getTransformationCoordinate(unit, cellCount, parentPosition)
 	local std = self.wallSize.X - self.wallSize.Z
@@ -81,7 +73,7 @@ function Draw:createWalls(parent, walls, mazeSize)
 			end
 
             if math.random(0, 10) == 1 then
-                wall.Touched:Connect(killerPlayer)
+                wall.Touched:Connect(Draw.killerPlayer)
                 wall.BrickColor = BrickColor.new("Bright red")
             end
 		end
@@ -97,16 +89,14 @@ function Draw:cresteExit(exitCount)
         local parent = cells[math.random(1, #cells)]
         exit.Name = "Exit"
         exit.PrimaryPart = exit:FindFirstChild("PrimaryPart")
-
-        -- TODO: stage two 정해지면 경로변경
-        Draw.setTeleportPart(exit.PrimaryPart, game:GetService("ReplicatedStorage").Template.StageTwo.SpawnLocation.Position)
+        exit.PrimaryPart.Touched:Connect(Draw.escape)
 
         Draw.setModelPosition(exit, parent)
         table.insert(exits, exit)
     end
 
     -- 일정 시간뒤 랜덤하게 위치 이동
-    while Wait(60 * 5) do
+    while wait(60 * 5) do
         for i = 1, #exits do
             local exit = exits[i]
             local parent = cells[math.random(1, #cells)]
@@ -121,35 +111,24 @@ function Draw.setModelPosition(model, parent)
     model:SetPrimaryPartCFrame(orientation + Vector3.new(0, 3, 0))
 end
 
--- TODO: killerPlayer, teleportPart 구조 및 위치 수정
-function Draw.setTeleportPart(teleportPart, destination)
-    local TELEPORT_FACE_ANGLE = 0
-    local FREEZE_CHARACTER = true
 
-    local ReplicatedStorage = game:GetService("ReplicatedStorage").Common
-    -- Require teleport module
-    local TeleportWithinPlace = require(ReplicatedStorage:WaitForChild("TeleportWithinPlace"))
-
-    local function teleportPlayer(otherPart)
-        local character = otherPart.Parent
-        local humanoid = character:FindFirstChild("Humanoid")
-
-        if humanoid and not humanoid:GetAttribute("Teleporting") then
-            humanoid:SetAttribute("Teleporting", true)
-
-            local params = {
-                destination = destination,
-                faceAngle = TELEPORT_FACE_ANGLE,
-                freeze = FREEZE_CHARACTER
-            }
-            TeleportWithinPlace.Teleport(humanoid, params)
-
-            wait(1)
-            humanoid:SetAttribute("Teleporting", nil)
-        end
+function Draw.escape(otherPart)
+    local partParent = otherPart.Parent
+    local humanoid = partParent:FindFirstChild("Humanoid")
+    if humanoid then
+        local StageModule = require(game:GetService("ReplicatedStorage").Common:WaitForChild("StageModule"))
+        local player = game:GetService("Players"):GetPlayerFromCharacter(otherPart.Parent)
+        StageModule.stageClear(player, 1)
     end
+end
 
-    teleportPart.Touched:Connect(teleportPlayer)
+-- source: https://developer.roblox.com/en-us/onboarding/deadly-lava/2
+function Draw.killerPlayer(otherPart)
+    local partParent = otherPart.Parent
+    local humanoid = partParent:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.Health = 0
+    end
 end
 
 
